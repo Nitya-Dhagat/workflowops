@@ -1,0 +1,57 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { version: "0.8.4" }
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -q
+      - name: World generation is reproducible
+        run: |
+          uv run python scripts/generate_world.py
+          git diff --exit-code data/
+
+  postgres-migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: wfo, POSTGRES_PASSWORD: wfo, POSTGRES_DB: wfo }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U wfo" --health-interval 3s --health-retries 20
+    env:
+      WFO_DATABASE_URL: postgresql+asyncpg://wfo:wfo@localhost:5432/wfo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { version: "0.8.4" }
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - run: uv run alembic upgrade head
+      - run: uv run alembic check
+      - run: uv run alembic downgrade base
+      - name: Full test suite against Postgres
+        run: uv run pytest -q
+        env:
+          WFO_TEST_DATABASE_URL: postgresql+asyncpg://wfo:wfo@localhost:5432/wfo
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: npm, cache-dependency-path: apps/web/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
