@@ -41,7 +41,7 @@ backend/database        SQLAlchemy models, Alembic migrations, reference-data se
 | Tests on Postgres | set `WFO_TEST_DATABASE_URL=postgresql+asyncpg://...` then `uv run pytest` |
 | Lint / format | `uv run ruff check .` · `uv run ruff format .` |
 | Typecheck | `uv run mypy` (strict) |
-| Migrate | `uv run alembic upgrade head` (URL from `WFO_DATABASE_URL`) |
+| Migrate | `uv run alembic upgrade head` (URL from `WFO_DATABASE_URL`; local MySQL: `mysql+aiomysql://...`, ADR-0005) |
 | New migration | `uv run alembic revision --autogenerate -m "..."` then review it |
 | Regenerate world | `uv run python scripts/generate_world.py` (must be byte-identical) |
 | Web checks | `npm --prefix apps/web run lint` · `npm --prefix apps/web run build` |
