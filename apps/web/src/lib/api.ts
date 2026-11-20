@@ -57,7 +57,7 @@ export type RunDetail = {
   request_status_reason: string | null;
   actions: Action[];
   approvals: Approval[];
-  agent_executions: { id: string; stage: string; agent: string; status: string; latency_ms: number; error: string | null }[];
+  agent_executions: { id: string; stage: string; agent: string; status: string; latency_ms: number; error: string | null; input_tokens: number; output_tokens: number; cost_usd_estimate: number }[];
   evidence: { ref: string; source: string; summary: string; collected_by: string }[];
   tool_invocations: { agent: string; tool: string; status: string; latency_ms: number }[];
 };

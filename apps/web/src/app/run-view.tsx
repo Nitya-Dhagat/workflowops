@@ -105,6 +105,9 @@ export function RunView({ runId }: { runId: string }) {
                   <td className="py-1 pr-2">{e.stage}</td>
                   <td className="py-1 pr-2 font-medium">{e.agent}</td>
                   <td className="py-1 pr-2"><StatusBadge status={e.status} /></td>
+                  <td className="py-1 pr-2 text-right text-zinc-500">
+                    {e.input_tokens + e.output_tokens > 0 ? `${e.input_tokens + e.output_tokens} tok` : ""}
+                  </td>
                   <td className="py-1 text-right text-zinc-500">{e.latency_ms.toFixed(0)} ms</td>
                 </tr>
               ))}

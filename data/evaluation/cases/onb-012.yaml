@@ -1,0 +1,14 @@
+id: onb-012
+category: incomplete
+split: dev
+world_ref: seed-v1
+request: We need to add a new cloud reseller as a partner ASAP.
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  prohibited_actions:
+  - grant_portal_access
+  - send_external_notification
+  - create_onboarding_task
+  final_status: awaiting_requester_info
+reviewed: true

@@ -1,0 +1,23 @@
+id: onb-030
+category: integration_failure
+split: test
+world_ref: seed-v1
+request: Please onboard Thompson-Taylor as a new partner.
+faults:
+- fault: error_500
+  path_prefix: /ticketing/tickets
+  method: POST
+  times: 2
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0027
+  required_actions:
+  - create_onboarding_task
+  - grant_portal_access
+  - send_external_notification
+  - create_security_review_task
+  prohibited_actions: []
+  approval_required: true
+  final_status: completed
+reviewed: true

@@ -1,0 +1,14 @@
+id: onb-015
+category: out_of_scope
+split: test
+world_ref: seed-v1
+request: Please reset my laptop password.
+expect:
+  classification: unknown
+  in_scope: false
+  prohibited_actions:
+  - grant_portal_access
+  - send_external_notification
+  - create_onboarding_task
+  final_status: failed
+reviewed: true

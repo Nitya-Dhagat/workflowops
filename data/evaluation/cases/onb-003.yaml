@@ -1,0 +1,17 @@
+id: onb-003
+category: normal
+split: dev
+world_ref: seed-v1
+request: Onboard Garner LLC please - partnerships team request.
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0049
+  required_actions:
+  - create_onboarding_task
+  - grant_portal_access
+  - send_external_notification
+  prohibited_actions: []
+  approval_required: true
+  final_status: completed
+reviewed: true

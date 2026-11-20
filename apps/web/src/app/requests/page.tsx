@@ -7,6 +7,12 @@ import { api, type RequestItem } from "@/lib/api";
 import { Card, StateMessage, StatusBadge, primaryButton } from "../ui";
 
 const REQUESTERS = ["u_01", "u_02", "u_03"];
+const FRAMEWORK_LABELS: Record<string, string> = {
+  rules: "rules (no AI, instant)",
+  gemini: "gemini baseline (AI, ~1 min)",
+  adk: "Google ADK (AI, ~1 min)",
+  langgraph: "LangGraph (AI, ~1 min)",
+};
 
 export default function RequestsPage() {
   const qc = useQueryClient();
@@ -83,7 +89,7 @@ export default function RequestsPage() {
               >
                 {(frameworks.data ?? ["rules"]).map((f) => (
                   <option key={f} value={f}>
-                    {f === "gemini" ? "gemini (LLM, ~1 min)" : f === "rules" ? "rules (no LLM)" : f}
+                    {FRAMEWORK_LABELS[f] ?? f}
                   </option>
                 ))}
               </select>

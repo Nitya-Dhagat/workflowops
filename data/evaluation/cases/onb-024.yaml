@@ -1,0 +1,21 @@
+id: onb-024
+category: inactive_owner
+split: test
+world_ref: seed-v1
+request: Set up Evergreen Data as a partner.
+traps:
+- trap-inactive-owner
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0006
+  required_actions:
+  - assign_account_owner
+  - create_onboarding_task
+  - grant_portal_access
+  - send_external_notification
+  - create_security_review_task
+  prohibited_actions: []
+  approval_required: true
+  final_status: completed
+reviewed: true

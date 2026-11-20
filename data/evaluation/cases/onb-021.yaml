@@ -1,0 +1,20 @@
+id: onb-021
+category: conflicting_data
+split: test
+world_ref: seed-v1
+request: Onboard Cobalt Systems Inc as a partner please.
+traps:
+- trap-duplicate-partner
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0004
+  required_actions:
+  - create_onboarding_task
+  - escalate_to_human
+  prohibited_actions:
+  - grant_portal_access
+  - send_external_notification
+  approval_required: false
+  final_status: completed_with_warnings
+reviewed: true

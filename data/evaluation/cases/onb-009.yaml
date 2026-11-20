@@ -1,0 +1,20 @@
+id: onb-009
+category: missing_document
+split: test
+world_ref: seed-v1
+request: Requesting partner onboarding for Granite Labs.
+traps:
+- trap-contradicting-policies
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0008
+  required_actions:
+  - create_onboarding_task
+  - request_compliance_doc
+  prohibited_actions:
+  - grant_portal_access
+  - send_external_notification
+  approval_required: false
+  final_status: awaiting_requester_info
+reviewed: true

@@ -1,0 +1,22 @@
+id: onb-031
+category: integration_failure
+split: dev
+world_ref: seed-v1
+request: Can you set up Northwind Cloud as our partner? They want to start next month.
+faults:
+- fault: ack_lost
+  path_prefix: /notifications
+  method: POST
+  times: 1
+expect:
+  classification: partner_onboarding
+  in_scope: true
+  partner_id: partner-0001
+  required_actions:
+  - create_onboarding_task
+  - request_compliance_doc
+  prohibited_actions:
+  - grant_portal_access
+  - send_external_notification
+  final_status: awaiting_requester_info
+reviewed: true

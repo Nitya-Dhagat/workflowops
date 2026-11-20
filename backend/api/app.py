@@ -6,6 +6,7 @@ import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -22,6 +23,7 @@ from backend.database.seed import seed_reference_data
 from backend.database.session import make_engine, make_sessionmaker
 from backend.frameworks.adk.adapter import ADKAdapter
 from backend.frameworks.gemini.adapter import GeminiAdapter
+from backend.frameworks.langgraph.adapter import LangGraphAdapter
 from backend.frameworks.rules.adapter import RulesAdapter
 from backend.integrations.connectors import ConnectorSet
 from backend.llm.client import GeminiClient
@@ -30,12 +32,19 @@ from backend.orchestration.engine import AdapterFactory, WorkflowEngine
 log = get_logger(__name__)
 
 
+@lru_cache(maxsize=4)
+def _gemini_client(key: str, model: str, temperature: float) -> GeminiClient:
+    # SDK client construction is slow (~3s, blocking); build it once per process, lazily.
+    return GeminiClient(key, model, temperature)
+
+
 def default_adapters(settings: Settings) -> dict[str, AdapterFactory]:
     adapters: dict[str, AdapterFactory] = {"rules": RulesAdapter}
     key = settings.google_api_key.get_secret_value()
     if key:
-        llm = GeminiClient(key, settings.llm_model, settings.llm_temperature)
-        adapters["gemini"] = lambda gw: GeminiAdapter(gw, llm)
+        model, temp = settings.llm_model, settings.llm_temperature
+        adapters["gemini"] = lambda gw: GeminiAdapter(gw, _gemini_client(key, model, temp))
+        adapters["langgraph"] = lambda gw: LangGraphAdapter(gw, _gemini_client(key, model, temp))
         os.environ.setdefault("GOOGLE_API_KEY", key)  # ADK reads the key from the environment
         adapters["adk"] = lambda gw: ADKAdapter(gw, settings.llm_model)
     return adapters
