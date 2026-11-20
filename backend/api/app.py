@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -19,6 +20,7 @@ from backend.core.logging import configure_logging, get_logger
 from backend.database.models import Base
 from backend.database.seed import seed_reference_data
 from backend.database.session import make_engine, make_sessionmaker
+from backend.frameworks.adk.adapter import ADKAdapter
 from backend.frameworks.gemini.adapter import GeminiAdapter
 from backend.frameworks.rules.adapter import RulesAdapter
 from backend.integrations.connectors import ConnectorSet
@@ -34,6 +36,8 @@ def default_adapters(settings: Settings) -> dict[str, AdapterFactory]:
     if key:
         llm = GeminiClient(key, settings.llm_model, settings.llm_temperature)
         adapters["gemini"] = lambda gw: GeminiAdapter(gw, llm)
+        os.environ.setdefault("GOOGLE_API_KEY", key)  # ADK reads the key from the environment
+        adapters["adk"] = lambda gw: ADKAdapter(gw, settings.llm_model)
     return adapters
 
 
