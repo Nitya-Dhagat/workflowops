@@ -33,6 +33,7 @@ from backend.frameworks.base import (
     PlatformEventType,
     ResumeSignal,
     TaskType,
+    TokenUsage,
     ToolCallSummary,
 )
 from backend.tools.gateway import ToolGateway
@@ -103,23 +104,44 @@ class RulesAdapter:
             events.append(
                 PlatformEvent(type=PlatformEventType.ERROR, agent=agent, payload={"error": str(e)})
             )
+            usage, model = self._pop_usage(request)
             return AgentTaskResult(
                 execution_id=request.execution_id,
                 status=ExecutionStatus.FAILED,
                 error=str(e),
+                usage=usage,
+                model=model,
                 tool_calls=calls,
                 events=events,
             )
         self._status[str(request.execution_id)] = ExecutionStatus.SUCCEEDED
+        usage, model = self._pop_usage(request)
+        if model:
+            events.append(
+                PlatformEvent(
+                    type=PlatformEventType.MODEL_CALL,
+                    agent=agent,
+                    payload={"model": model},
+                    input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens,
+                    cost_usd_estimate=usage.cost_usd_estimate,
+                )
+            )
         events.append(PlatformEvent(type=PlatformEventType.AGENT_FINISHED, agent=agent))
         return AgentTaskResult(
             execution_id=request.execution_id,
             status=ExecutionStatus.SUCCEEDED,
             output=output,
             evidence=evidence,
+            usage=usage,
+            model=model,
             tool_calls=calls,
             events=events,
         )
+
+    def _pop_usage(self, request: AgentTaskRequest) -> tuple[TokenUsage, str | None]:
+        """Token usage for this execution (rule-based tasks use no model)."""
+        return TokenUsage(), None
 
     async def stream(self, request: AgentTaskRequest) -> AsyncIterator[PlatformEvent]:
         result = await self.execute(request)

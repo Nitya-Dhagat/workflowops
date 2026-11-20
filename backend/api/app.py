@@ -19,15 +19,22 @@ from backend.core.logging import configure_logging, get_logger
 from backend.database.models import Base
 from backend.database.seed import seed_reference_data
 from backend.database.session import make_engine, make_sessionmaker
+from backend.frameworks.gemini.adapter import GeminiAdapter
 from backend.frameworks.rules.adapter import RulesAdapter
 from backend.integrations.connectors import ConnectorSet
+from backend.llm.client import GeminiClient
 from backend.orchestration.engine import AdapterFactory, WorkflowEngine
 
 log = get_logger(__name__)
 
 
-def default_adapters() -> dict[str, AdapterFactory]:
-    return {"rules": RulesAdapter}
+def default_adapters(settings: Settings) -> dict[str, AdapterFactory]:
+    adapters: dict[str, AdapterFactory] = {"rules": RulesAdapter}
+    key = settings.google_api_key.get_secret_value()
+    if key:
+        llm = GeminiClient(key, settings.llm_model, settings.llm_temperature)
+        adapters["gemini"] = lambda gw: GeminiAdapter(gw, llm)
+    return adapters
 
 
 def create_app(
@@ -60,7 +67,7 @@ def create_app(
         app.state.sessionmaker = sm
         app.state.connectors = connectors
         app.state.engine = WorkflowEngine(
-            sm, connectors, default_adapters(), settings, **(engine_kwargs or {})
+            sm, connectors, default_adapters(settings), settings, **(engine_kwargs or {})
         )
         app.state.tasks = set()
         try:
@@ -107,6 +114,10 @@ def create_app(
             },
             status_code=422,
         )
+
+    @app.get("/api/v1/frameworks")
+    async def frameworks() -> list[str]:
+        return sorted(app.state.engine.adapters)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

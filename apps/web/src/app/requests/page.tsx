@@ -13,6 +13,8 @@ export default function RequestsPage() {
   const [q, setQ] = useState("");
   const [description, setDescription] = useState("");
   const [requester, setRequester] = useState("u_01");
+  const [framework, setFramework] = useState("rules");
+  const frameworks = useQuery({ queryKey: ["frameworks"], queryFn: () => api<string[]>("/frameworks") });
 
   const list = useQuery({
     queryKey: ["requests", q],
@@ -28,7 +30,7 @@ export default function RequestsPage() {
         method: "POST",
         body: JSON.stringify({ description, requester_id: requester, department: "partnerships" }),
       });
-      await api(`/workflows/${req.id}/run`, { method: "POST", body: JSON.stringify({ framework: "rules" }) });
+      await api(`/workflows/${req.id}/run`, { method: "POST", body: JSON.stringify({ framework }) });
       return req;
     },
     onSuccess: () => {
@@ -69,6 +71,20 @@ export default function RequestsPage() {
               >
                 {REQUESTERS.map((r) => (
                   <option key={r}>{r}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block font-medium">Agent framework</span>
+              <select
+                value={framework}
+                onChange={(e) => setFramework(e.target.value)}
+                className="rounded-md border border-zinc-300 bg-transparent p-1.5 dark:border-zinc-700"
+              >
+                {(frameworks.data ?? ["rules"]).map((f) => (
+                  <option key={f} value={f}>
+                    {f === "gemini" ? "gemini (LLM, ~1 min)" : f === "rules" ? "rules (no LLM)" : f}
+                  </option>
                 ))}
               </select>
             </label>

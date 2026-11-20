@@ -113,6 +113,7 @@ class AgentTaskResult(BaseModel):
     tool_calls: list[ToolCallSummary] = Field(default_factory=list)
     events: list[PlatformEvent] = Field(default_factory=list)
     error: str | None = None
+    model: str | None = None
 
 
 class ResumeSignal(BaseModel):

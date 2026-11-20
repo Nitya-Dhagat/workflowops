@@ -660,7 +660,7 @@ class WorkflowEngine:
             framework=adapter.name,
             framework_version=adapter.version,
             prompt_version=areq.prompt_version,
-            model=areq.model_config_.model,
+            model=res.model or areq.model_config_.model,
             status=res.status,
             input=areq.input,
             output=res.output or None,
