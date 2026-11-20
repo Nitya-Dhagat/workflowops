@@ -56,7 +56,11 @@ async def test_transient_5xx_is_retried(client, api: FastAPI, mock_client) -> No
             )
         )
         attempts = list(
-            await s.scalars(select(ActionExecution).where(ActionExecution.action_id == task.id))
+            await s.scalars(
+                select(ActionExecution)
+                .where(ActionExecution.action_id == task.id)
+                .order_by(ActionExecution.attempt)
+            )
         )  # type: ignore[union-attr]
     assert [a.status for a in attempts] == ["retryable_error", "retryable_error", "succeeded"]
 

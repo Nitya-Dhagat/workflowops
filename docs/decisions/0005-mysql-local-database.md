@@ -19,5 +19,8 @@ all frameworks will be Google Gemini (key in `.env` as `GOOGLE_API_KEY`).
   `LLMClient` with one model/config, so comparisons stay fair. No Anthropic key is planned.
 
 ## Consequences
-- The MySQL path is **not yet verified**: no MySQL URL was configured when this ADR was written.
-- Test suite stays on SQLite; `WFO_TEST_DATABASE_URL` can point it at MySQL for a manual check.
+- Verified 2026-11-20 on local MySQL 8.0.35: `alembic upgrade head` + `alembic check` clean, a full
+  approve-execute-verify run stored in MySQL, and the whole test suite passing against a separate
+  `workflowops_test` database (`WFO_TEST_DATABASE_URL`). Use a separate test database: the test
+  fixture drops all tables before each test.
+- Test suite defaults to SQLite so CI stays offline.
