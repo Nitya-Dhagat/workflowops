@@ -29,6 +29,11 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
         <h3 className="font-medium">{approval.action.action_type.replaceAll("_", " ")}</h3>
         <StatusBadge status={approval.status} />
       </header>
+      {approval.request_description && (
+        <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-300">
+          For request: <span className="font-medium">{approval.request_description}</span>
+        </p>
+      )}
       <pre className="mb-2 overflow-x-auto rounded bg-zinc-100 p-2 text-xs dark:bg-zinc-800">
         {JSON.stringify(approval.action.params, null, 2)}
       </pre>

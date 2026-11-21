@@ -49,6 +49,7 @@ export type Approval = {
   decided_at: string | null;
   comment: string | null;
   action: { action_type: string; params: Record<string, unknown>; evidence_refs: string[]; notes: string[] };
+  request_description?: string | null;
 };
 
 export type RunDetail = {

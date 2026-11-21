@@ -88,7 +88,11 @@ async def get_run(run_id: uuid.UUID, session: SessionDep) -> dict[str, Any]:
         "request_status_reason": req.status_reason if req else None,
         "actions": [ProposedActionRead.model_validate(a) for a in actions],
         "approvals": [
-            {**ApprovalRead.model_validate(a).model_dump(mode="json"), "action": a.action_snapshot}
+            {
+                **ApprovalRead.model_validate(a).model_dump(mode="json"),
+                "action": a.action_snapshot,
+                "request_description": req.description if req else None,
+            }
             for a in approvals
         ],
         "agent_executions": [

@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from backend.api.deps import EngineDep, SessionDep, spawn
 from backend.approvals.service import ApprovalError, decide
-from backend.database.models import Approval
+from backend.database.models import Approval, Request, WorkflowRun
 from backend.domain.enums import ApprovalStatus
 from backend.domain.schemas import ApprovalDecisionIn, ApprovalRead
 
@@ -22,14 +22,24 @@ async def list_approvals(
     status: ApprovalStatus | None = ApprovalStatus.PENDING,
     run_id: uuid.UUID | None = None,
 ) -> list[dict[str, Any]]:
-    stmt = select(Approval).order_by(Approval.created_at)
+    # Join to the originating request so reviewers always see what they are approving for.
+    stmt = (
+        select(Approval, Request.description)
+        .join(WorkflowRun, WorkflowRun.id == Approval.run_id)
+        .join(Request, Request.id == WorkflowRun.request_id)
+        .order_by(Approval.created_at)
+    )
     if status:
         stmt = stmt.where(Approval.status == status)
     if run_id:
         stmt = stmt.where(Approval.run_id == run_id)
     return [
-        {**ApprovalRead.model_validate(a).model_dump(mode="json"), "action": a.action_snapshot}
-        for a in await session.scalars(stmt)
+        {
+            **ApprovalRead.model_validate(a).model_dump(mode="json"),
+            "action": a.action_snapshot,
+            "request_description": desc,
+        }
+        for a, desc in (await session.execute(stmt)).all()
     ]
 
 

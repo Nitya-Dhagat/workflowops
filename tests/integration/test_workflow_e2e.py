@@ -239,3 +239,9 @@ async def test_events_and_listing(client) -> None:  # type: ignore[no-untyped-de
     assert [e["seq"] for e in evs] == list(range(1, len(evs) + 1))
     listing = (await client.get("/api/v1/requests", params={"q": "Northwind"})).json()
     assert listing["total"] == 1
+
+
+async def test_approvals_name_their_request(client) -> None:  # type: ignore[no-untyped-def]
+    await run(client, await submit(client, "Onboard Juniper Logic"))
+    pending = (await client.get("/api/v1/approvals")).json()
+    assert pending and all(a["request_description"] == "Onboard Juniper Logic" for a in pending)
