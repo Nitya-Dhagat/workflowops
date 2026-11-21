@@ -13,7 +13,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from backend.api.routes import approvals, integrations, requests, workflows
 from backend.core.config import Settings, get_settings
@@ -137,6 +137,10 @@ def create_app(
     @app.get("/api/v1/frameworks")
     async def frameworks() -> list[str]:
         return sorted(app.state.engine.adapters)
+
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse("/api/v1/docs")
 
     @app.get("/health")
     async def health() -> dict[str, str]:
