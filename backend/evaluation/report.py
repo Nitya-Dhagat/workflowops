@@ -9,6 +9,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+MIN_VALID_RUNS = 10
+
 
 def bootstrap_ci(values: list[float], n: int = 2000, seed: int = 0) -> tuple[float, float]:
     if not values:
@@ -25,12 +27,27 @@ def pct(values: list[float], q: float) -> float:
     return s[min(len(s) - 1, int(q * len(s)))]
 
 
+def is_quota_blocked(r: dict[str, Any]) -> bool:
+    """Provider quota/rate-limit failures are infrastructure failures, not quality results."""
+    reason = r.get("status_reason", "")
+    return "RESOURCE_EXHAUSTED" in reason or "429" in reason
+
+
 def summarize(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     by_fw: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    blocked: dict[str, int] = defaultdict(int)
     for r in results:
-        by_fw[r["framework"]].append(r)
+        if is_quota_blocked(r):
+            blocked[r["framework"]] += 1
+        else:
+            by_fw[r["framework"]].append(r)
     out: dict[str, dict[str, Any]] = {}
+    for fw, n in blocked.items():
+        out[fw] = {"quota_blocked_runs": n, "valid_runs": len(by_fw.get(fw, []))}
     for fw, rs in sorted(by_fw.items()):
+        if len(rs) < MIN_VALID_RUNS:  # too few valid runs to report any rate
+            out.setdefault(fw, {})["valid_runs"] = len(rs)
+            continue
         # Per-case success averaged over trials, then CI over cases (cases are the unit).
         per_case: dict[str, list[bool]] = defaultdict(list)
         for r in rs:
@@ -68,6 +85,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             "total_cost_usd_estimate": sum(r["cost_usd_estimate"] for r in rs),
             "by_category": {c: statistics.fmean(v) for c, v in sorted(cats.items())},
             "failure_tags": dict(sorted(tags.items())),
+            "quota_blocked_runs": blocked.get(fw, 0),
+            "valid_runs": len(rs),
         }
     return out
 
@@ -75,7 +94,15 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 def render(
     meta: dict[str, Any], summary: dict[str, dict[str, Any]], results: list[dict[str, Any]]
 ) -> str:
+    excluded = {f: s for f, s in summary.items() if "success_rate" not in s}
+    summary = {f: s for f, s in summary.items() if "success_rate" in s}
     fws = list(summary)
+    note = [
+        f"> **Not reported:** `{f}` - {s.get('valid_runs', 0)} valid runs, "
+        f"{s.get('quota_blocked_runs', 0)} blocked by the Gemini free-tier quota "
+        f"(429, 20 requests/day/model). Too few valid runs to report rates."
+        for f, s in excluded.items()
+    ]
     lines = [
         "# WorkflowOps benchmark report",
         "",
@@ -90,6 +117,7 @@ def render(
         f"- Trials per case: {meta['trials']} · git `{meta['git_sha']}` · run {meta['started']}",
         "- Simulated reviewer approves every requested approval; scoring is final-state based.",
         "",
+        *(n + "\n" for n in note),
         "## Results",
         "",
         "| Metric | " + " | ".join(fws) + " |",
@@ -137,7 +165,7 @@ def render(
             f"- **{f}**: "
             + (", ".join(f"{k} {v}" for k, v in summary[f]["failure_tags"].items()) or "none")
         )
-    failed = [r for r in results if not r["success"]]
+    failed = [r for r in results if not r["success"] and not is_quota_blocked(r)]
     lines += [
         "",
         "## Failed runs (for inspection)",

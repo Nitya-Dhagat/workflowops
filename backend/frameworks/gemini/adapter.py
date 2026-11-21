@@ -12,6 +12,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from backend.domain.enums import RequestStatus
 from backend.domain.schemas import ActionPlan, Classification, Evidence, Report
 from backend.frameworks.base import AgentTaskRequest, TaskType, TokenUsage
 from backend.frameworks.rules.adapter import RulesAdapter
@@ -155,5 +156,5 @@ class GeminiAdapter(RulesAdapter):
         )
         report, usage = await structured(self.llm, load_prompt("reporting"), prompt, Report)
         self._record(req, usage)
-        report.outcome = inp["outcome"]  # the platform decides the outcome, not the model
+        report.outcome = RequestStatus(inp["outcome"])  # the platform decides the outcome
         return report.model_dump(), []

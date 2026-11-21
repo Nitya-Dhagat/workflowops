@@ -389,6 +389,10 @@ class RulesAdapter:
             facts={
                 "partner_id": pid,
                 "tier": partner["tier"],
+                "soc2_status": "valid"
+                if socs and any(date.fromisoformat(c["expires"]) > today for c in socs)
+                else ("expired" if socs else "missing"),
+                "region_restricted": partner["region"] in meta["restricted_regions"],
                 "owner_id": partner["owner_id"],
                 "primary_contact_ids": [c["id"] for c in partner["contacts"] if c["primary"]],
                 "active_owner_ids": sorted(
