@@ -1,0 +1,20 @@
+# Render blueprint: public demo of the WorkflowOps API + mock business systems in one service.
+# Demo mode: rules framework only (no LLM key on the server), SQLite that resets on redeploy,
+# synthetic data only. The dashboard is deployed separately on Vercel (apps/web).
+services:
+  - type: web
+    name: workflowops-api
+    runtime: docker
+    plan: free
+    dockerfilePath: infra/docker/python.Dockerfile
+    dockerCommand: sh scripts/start_demo.sh
+    healthCheckPath: /health
+    envVars:
+      - key: WFO_DATABASE_URL
+        value: sqlite+aiosqlite:////tmp/workflowops.db
+      - key: WFO_MOCK_SYSTEMS_URL
+        value: http://127.0.0.1:8100
+      - key: WFO_ENABLED_FRAMEWORKS
+        value: rules
+      - key: WFO_CORS_ORIGIN_REGEX
+        value: https://.*\.vercel\.app

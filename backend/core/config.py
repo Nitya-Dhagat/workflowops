@@ -32,6 +32,12 @@ class Settings(BaseSettings):
 
     data_dir: Path = REPO_ROOT / "data"
 
+    # Deployment: comma-separated CORS origins, an optional origin regex (e.g. Vercel URLs),
+    # and an optional framework allowlist (a public demo exposes only "rules").
+    cors_origins: str = "http://localhost:3000"
+    cors_origin_regex: str = ""
+    enabled_frameworks: str = ""
+
     # LLM (one provider/model for every framework so comparisons are fair).
     llm_model: str = "gemini-3.5-flash"
     llm_temperature: float = 0.0

@@ -6,9 +6,15 @@
 ## Configuration
 
 - Dataset version `4a3c448425f4` · 31 cases · split `all` · scorer v1.0
-- LLM model (all LLM frameworks): `none`, temperature 0.0
-- Trials per case: 3 · git `a1f1f2e` · run 20261120T235151Z
+- LLM model (all LLM frameworks): `gemini-3.5-flash`, temperature 0.0
+- Trials per case: 1 · git `805a6ee` · run 20261121T083706Z
 - Simulated reviewer approves every requested approval; scoring is final-state based.
+
+> **Not reported:** `adk` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
+
+> **Not reported:** `gemini` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
+
+> **Not reported:** `langgraph` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
 
 ## Results
 

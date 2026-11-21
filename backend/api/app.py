@@ -21,9 +21,6 @@ from backend.core.logging import configure_logging, get_logger
 from backend.database.models import Base
 from backend.database.seed import seed_reference_data
 from backend.database.session import make_engine, make_sessionmaker
-from backend.frameworks.adk.adapter import ADKAdapter
-from backend.frameworks.gemini.adapter import GeminiAdapter
-from backend.frameworks.langgraph.adapter import LangGraphAdapter
 from backend.frameworks.rules.adapter import RulesAdapter
 from backend.integrations.connectors import ConnectorSet
 from backend.llm.client import GeminiClient
@@ -42,11 +39,19 @@ def default_adapters(settings: Settings) -> dict[str, AdapterFactory]:
     adapters: dict[str, AdapterFactory] = {"rules": RulesAdapter}
     key = settings.google_api_key.get_secret_value()
     if key:
+        # Imported lazily: ADK and LangGraph are heavy, and a demo without a key needs neither.
+        from backend.frameworks.adk.adapter import ADKAdapter
+        from backend.frameworks.gemini.adapter import GeminiAdapter
+        from backend.frameworks.langgraph.adapter import LangGraphAdapter
+
         model, temp = settings.llm_model, settings.llm_temperature
         adapters["gemini"] = lambda gw: GeminiAdapter(gw, _gemini_client(key, model, temp))
         adapters["langgraph"] = lambda gw: LangGraphAdapter(gw, _gemini_client(key, model, temp))
         os.environ.setdefault("GOOGLE_API_KEY", key)  # ADK reads the key from the environment
         adapters["adk"] = lambda gw: ADKAdapter(gw, settings.llm_model)
+    if settings.enabled_frameworks:  # e.g. "rules" for a public demo without an LLM key
+        allowed = {f.strip() for f in settings.enabled_frameworks.split(",")}
+        adapters = {k: v for k, v in adapters.items() if k in allowed}
     return adapters
 
 
@@ -104,7 +109,8 @@ def create_app(
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000"],
+        allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+        allow_origin_regex=settings.cors_origin_regex or None,
         allow_methods=["*"],
         allow_headers=["*"],
     )
