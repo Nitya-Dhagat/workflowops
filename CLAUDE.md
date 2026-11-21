@@ -45,7 +45,8 @@ backend/database        SQLAlchemy models, Alembic migrations, reference-data se
 | New migration | `uv run alembic revision --autogenerate -m "..."` then review it |
 | Regenerate world | `uv run python scripts/generate_world.py` (must be byte-identical) |
 | Web checks | `npm --prefix apps/web run lint` · `npm --prefix apps/web run build` |
-| Eval | not implemented yet (Phase 7) |
+| Eval (offline) | `uv run python scripts/run_eval.py --frameworks rules --trials 3` |
+| Eval (live, daily) | `uv run python scripts/run_eval.py --daily --frameworks gemini,adk,langgraph --max-runs 5` (free-tier quota: resumable, stops on 429) |
 
 ## Conventions
 

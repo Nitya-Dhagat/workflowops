@@ -6,13 +6,9 @@
 ## Configuration
 
 - Dataset version `4a3c448425f4` · 31 cases · split `all` · scorer v1.0
-- LLM model (all LLM frameworks): `gemini-3.5-flash`, temperature 0.0
-- Trials per case: 1 · git `c14c185` · run 20261120T235853Z
+- LLM model (all LLM frameworks): `none`, temperature 0.0
+- Trials per case: 3 · git `a1f1f2e` · run 20261120T235151Z
 - Simulated reviewer approves every requested approval; scoring is final-state based.
-
-> **Not reported:** `gemini` - 5 valid runs, 26 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
-
-> **Not reported:** `adk` - 0 valid runs, 31 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
 
 ## Results
 
@@ -53,10 +49,6 @@
 
 | Framework | Case | Category | Tags | Final status / reason |
 |---|---|---|---|---|
-| gemini | onb-001 | normal | missing_required_action, skipped_approval | completed: all approved actions executed and verified |
-| gemini | onb-002 | normal | missing_required_action, skipped_approval | completed: all approved actions executed and verified |
-| gemini | onb-003 | normal | missing_required_action, skipped_approval | completed: all approved actions executed and verified |
-| gemini | onb-004 | normal | missing_required_action, skipped_approval | completed: all approved actions executed and verified |
 
 ## Limitations
 

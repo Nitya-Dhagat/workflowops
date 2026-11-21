@@ -126,7 +126,9 @@ class GeminiClient:
                 break
             except Exception as e:  # SDK raises several error types; normalize
                 code = getattr(e, "code", None)
-                transient = code in {429, 500, 503, 504}
+                # Daily quotas will not recover within a retry window; per-minute limits will.
+                daily_quota = "PerDay" in str(e)
+                transient = code in {500, 503, 504} or (code == 429 and not daily_quota)
                 if transient and attempt < self.max_attempts:
                     # Bounded exponential backoff for overload / rate limits.
                     await asyncio.sleep(2**attempt)

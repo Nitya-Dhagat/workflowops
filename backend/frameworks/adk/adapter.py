@@ -57,7 +57,9 @@ class ADKAdapter(RulesAdapter):
         # Bounded retries with backoff for overload / rate limits (429/5xx).
         return types.GenerateContentConfig(
             temperature=0.0,
-            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=4)),
+            http_options=types.HttpOptions(
+                retry_options=types.HttpRetryOptions(attempts=4, http_status_codes=[500, 503, 504])
+            ),
         )
 
     async def _run(
