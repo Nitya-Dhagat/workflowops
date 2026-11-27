@@ -11,12 +11,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.approvals.grants import UnauthorizedExecutionError, issue_grant
 from backend.core.logging import get_logger, redact
 from backend.database.models import ActionExecution, IdempotencyKey, ProposedActionRecord, utcnow
 from backend.domain.enums import ActionStatus
 from backend.integrations.base import ConnectorError
 from backend.orchestration.bindings import connector_params, external_ref, locate
-from backend.tools.gateway import ToolGateway, UnauthorizedExecutionError
+from backend.tools.gateway import ToolGateway
 
 log = get_logger(__name__)
 Sleep = Callable[[float], Awaitable[None]]
@@ -41,8 +42,13 @@ class ActionExecutor:
         retry: RetryPolicy,
         sleep: Sleep,
         rng: random.Random | None = None,
+        *,
+        secret: bytes = b"",
+        medium_requires_approval: bool = False,
     ) -> None:
         self.gateway = gateway
+        self.secret = secret
+        self.medium_requires_approval = medium_requires_approval
         self.retry = retry
         self.sleep = sleep
         self.rng = rng or random.Random()
@@ -50,6 +56,24 @@ class ActionExecutor:
     async def run(self, session: AsyncSession, action: ProposedActionRecord) -> None:
         """Run one action to a final SUCCEEDED/FAILED state, committing as it goes."""
         key = action.idempotency_key
+        # Authorization comes from the database, not from the in-memory status.
+        try:
+            grant = await issue_grant(
+                session,
+                action.id,
+                self.secret,
+                medium_requires_approval=self.medium_requires_approval,
+            )
+        except UnauthorizedExecutionError as e:
+            await self._fail(
+                session,
+                action,
+                0,
+                connector_params(action.action_type, action.params),
+                str(e),
+                time.perf_counter(),
+            )
+            return
         existing = await session.get(IdempotencyKey, key)
         if existing and existing.status == "completed":
             action.status = ActionStatus.SUCCEEDED
@@ -80,8 +104,7 @@ class ActionExecutor:
                 res = await self.gateway.execute_action(
                     action_type=action.action_type,
                     params=action.params,
-                    status=ActionStatus(action.status),
-                    approved_hash=action.payload_hash,
+                    grant=grant,
                     idempotency_key=key,
                     connector_params=cparams,
                     run_id=action.run_id,

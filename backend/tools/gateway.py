@@ -14,8 +14,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from backend.approvals.grants import ExecutionGrant, UnauthorizedExecutionError, verify_grant
 from backend.core.logging import redact
-from backend.domain.enums import ActionStatus
 from backend.integrations.base import (
     ConnectorAction,
     ConnectorError,
@@ -23,7 +23,7 @@ from backend.integrations.base import (
     RetrieveQuery,
 )
 from backend.integrations.connectors import ConnectorSet
-from backend.policy.catalog import CATALOG, action_hash
+from backend.policy.catalog import CATALOG
 
 
 class _Args(BaseModel):
@@ -117,10 +117,6 @@ class ToolArgumentError(Exception):
     pass
 
 
-class UnauthorizedExecutionError(Exception):
-    pass
-
-
 @dataclass
 class InvocationRecord:
     run_id: uuid.UUID | None
@@ -136,6 +132,8 @@ class InvocationRecord:
 @dataclass
 class ToolGateway:
     connectors: ConnectorSet
+    # Secret used to verify execution grants. Empty means no side effects are allowed at all.
+    grant_secret: bytes = b""
     records: list[InvocationRecord] = field(default_factory=list)
 
     def drain(self) -> list[InvocationRecord]:
@@ -198,25 +196,29 @@ class ToolGateway:
         *,
         action_type: str,
         params: dict[str, Any],
-        status: ActionStatus,
-        approved_hash: str,
+        grant: ExecutionGrant,
         idempotency_key: str,
         connector_params: dict[str, Any],
         run_id: uuid.UUID | None = None,
     ) -> ConnectorResult:
-        """Perform a side effect. Refuses anything not approved with a matching hash."""
+        """Perform a side effect. Refuses anything without a valid grant for these exact params.
+
+        The grant is minted from database state by ``approvals.grants.issue_grant``; the caller
+        cannot vouch for an action by passing a status.
+        """
         start = time.perf_counter()
         tool = f"action.{action_type}"
         spec = CATALOG.get(action_type)
         if spec is None:
             self._record(run_id, "execution", tool, "denied", params, None, "unknown", start)
             raise UnauthorizedExecutionError(f"unknown action type {action_type}")
-        if status is not ActionStatus.APPROVED and status is not ActionStatus.EXECUTING:
-            self._record(run_id, "execution", tool, "denied", params, None, "not approved", start)
-            raise UnauthorizedExecutionError(f"action not approved (status={status})")
-        if action_hash(action_type, params) != approved_hash:
-            self._record(run_id, "execution", tool, "denied", params, None, "hash mismatch", start)
-            raise UnauthorizedExecutionError("action changed after approval; re-approval needed")
+        try:
+            if not self.grant_secret:
+                raise UnauthorizedExecutionError("gateway has no grant secret; execution disabled")
+            verify_grant(grant, action_type, params, idempotency_key, self.grant_secret)
+        except UnauthorizedExecutionError as e:
+            self._record(run_id, "execution", tool, "denied", params, None, str(e), start)
+            raise
         try:
             res = await self.connectors.by_name(spec.connector).execute(
                 ConnectorAction(

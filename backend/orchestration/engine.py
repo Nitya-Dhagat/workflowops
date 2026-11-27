@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import secrets
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -109,6 +110,8 @@ class WorkflowEngine:
         self.rng = rng or random.Random()
         self.worker_id = worker_id or f"worker-{uuid.uuid4().hex[:8]}"
         self.claim_wait_s = claim_wait_s
+        # Grants are minted and verified inside this worker only, so a per-process key suffices.
+        self._grant_secret = secrets.token_bytes(32)
         self._locks: dict[uuid.UUID, asyncio.Lock] = {}
         # Test hook: called after each committed stage with the new status.
         self.after_stage: Callable[[RequestStatus], Awaitable[None]] | None = None
@@ -202,7 +205,7 @@ class WorkflowEngine:
 
     # ================================================================== driver
     async def _advance(self, run_id: uuid.UUID) -> RequestStatus:
-        gateway = ToolGateway(self.connectors)
+        gateway = ToolGateway(self.connectors, grant_secret=self._grant_secret)
         adapter = self.adapters[await self._framework(run_id)](gateway)
 
         while True:
@@ -518,6 +521,8 @@ class WorkflowEngine:
             ),
             self.sleep,
             self.rng,
+            secret=self._grant_secret,
+            medium_requires_approval=self.settings.medium_risk_requires_approval,
         )
         actions = _topo(await self._actions(s, run.id))
         by_key = {a.key: a for a in actions}
