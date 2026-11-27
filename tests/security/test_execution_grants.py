@@ -27,6 +27,7 @@ from backend.domain.enums import ActionStatus
 from backend.orchestration.executor import ActionExecutor, RetryPolicy
 from backend.policy.catalog import action_hash
 from backend.tools.gateway import ToolGateway
+from tests.helpers import auth_headers
 
 pytestmark = pytest.mark.integration
 SECRET = b"test-secret"
@@ -38,9 +39,7 @@ async def _no_sleep(_: float) -> None:
 
 
 async def _paused_juniper(client: httpx.AsyncClient) -> str:
-    r = await client.post(
-        "/api/v1/requests", json={"description": "Onboard Juniper Logic", "requester_id": "u_01"}
-    )
+    r = await client.post("/api/v1/requests", json={"description": "Onboard Juniper Logic"})
     r = await client.post(
         f"/api/v1/workflows/{r.json()['id']}/run?wait=true", json={"framework": "rules"}
     )
@@ -95,7 +94,8 @@ async def test_params_changed_after_approval_are_refused(client, api, mock_clien
     )
     r = await client.post(
         f"/api/v1/approvals/{ap['id']}/decision",
-        json={"decision": "approve", "reviewer_id": "u_10", "action_hash": ap["action_hash"]},
+        json={"decision": "approve", "action_hash": ap["action_hash"]},
+        headers=await auth_headers(client, "u_10"),
     )
     assert r.status_code == 200
     action = await _access_action(api, run_id)

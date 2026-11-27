@@ -36,9 +36,7 @@ def worker(api: FastAPI, name: str, claim_wait_s: float = 0.5) -> WorkflowEngine
 
 
 async def _request(client: httpx.AsyncClient) -> uuid.UUID:
-    r = await client.post(
-        "/api/v1/requests", json={"description": "Onboard Northwind Cloud", "requester_id": "u_01"}
-    )
+    r = await client.post("/api/v1/requests", json={"description": "Onboard Northwind Cloud"})
     return uuid.UUID(r.json()["id"])
 
 
@@ -76,9 +74,7 @@ async def test_second_worker_backs_off_while_first_holds_lease(client, api, mock
 
 
 async def test_lease_is_released_on_pause_so_another_worker_can_resume(client, api) -> None:  # type: ignore[no-untyped-def]
-    r = await client.post(
-        "/api/v1/requests", json={"description": "Onboard Juniper Logic", "requester_id": "u_01"}
-    )
+    r = await client.post("/api/v1/requests", json={"description": "Onboard Juniper Logic"})
     a, b = worker(api, "worker-a"), worker(api, "worker-b")
     run_id = await a.create_run(uuid.UUID(r.json()["id"]))
     assert await a.advance(run_id) is RequestStatus.AWAITING_APPROVAL

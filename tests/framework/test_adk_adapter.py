@@ -91,9 +91,7 @@ class ScriptedLlm(BaseLlm):
 async def test_adk_pipeline_with_tool_call_and_critic(client, api, mock_client) -> None:  # type: ignore[no-untyped-def]
     llm = ScriptedLlm()
     api.state.engine.adapters["adk"] = lambda gw: ADKAdapter(gw, llm)
-    r = await client.post(
-        "/api/v1/requests", json={"description": "Onboard Northwind Cloud", "requester_id": "u_01"}
-    )
+    r = await client.post("/api/v1/requests", json={"description": "Onboard Northwind Cloud"})
     r = await client.post(
         f"/api/v1/workflows/{r.json()['id']}/run?wait=true", json={"framework": "adk"}
     )

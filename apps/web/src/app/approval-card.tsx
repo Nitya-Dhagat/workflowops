@@ -3,20 +3,21 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Approval } from "@/lib/api";
+import { useSession } from "./session";
 import { RiskBadge, StateMessage, StatusBadge, primaryButton, secondaryButton } from "./ui";
-
-const REVIEWERS = ["u_10", "u_11", "u_12"];
 
 export function ApprovalCard({ approval }: { approval: Approval }) {
   const qc = useQueryClient();
-  const [reviewer, setReviewer] = useState(REVIEWERS[0]);
+  const { session } = useSession();
+  const isReviewer = session?.user.role === "reviewer";
   const [comment, setComment] = useState("");
   const decide = useMutation({
     mutationFn: (decision: "approve" | "reject" | "request_changes") =>
       api(`/approvals/${approval.id}/decision`, {
         method: "POST",
         // The hash binds the decision to exactly what the reviewer is looking at.
-        body: JSON.stringify({ decision, reviewer_id: reviewer, action_hash: approval.action_hash, comment: comment || null }),
+        // The reviewer is whoever is signed in; the server takes identity from the token.
+        body: JSON.stringify({ decision, action_hash: approval.action_hash, comment: comment || null }),
       }),
     onSuccess: () => qc.invalidateQueries(),
   });
@@ -47,18 +48,13 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
           {approval.comment ? `: “${approval.comment}”` : ""}
         </p>
       )}
-      {pending && (
+      {pending && !isReviewer && (
+        <p className="mt-3 text-sm text-zinc-500">
+          Waiting for a reviewer. Sign in as a reviewer (u_10 to u_12) to approve or reject.
+        </p>
+      )}
+      {pending && isReviewer && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Reviewer"
-            value={reviewer}
-            onChange={(e) => setReviewer(e.target.value)}
-            className="rounded-md border border-zinc-300 bg-transparent p-1.5 text-sm dark:border-zinc-700"
-          >
-            {REVIEWERS.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
           <input
             aria-label="Comment"
             placeholder="Comment (optional)"

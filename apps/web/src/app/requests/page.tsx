@@ -6,7 +6,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RequestItem } from "@/lib/api";
 import { Card, StateMessage, StatusBadge, primaryButton } from "../ui";
 
-const REQUESTERS = ["u_01", "u_02", "u_03"];
 const FRAMEWORK_LABELS: Record<string, string> = {
   rules: "rules (no AI, instant)",
   gemini: "gemini baseline (AI, ~1 min)",
@@ -18,7 +17,6 @@ export default function RequestsPage() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [description, setDescription] = useState("");
-  const [requester, setRequester] = useState("u_01");
   const [framework, setFramework] = useState("rules");
   const frameworks = useQuery({ queryKey: ["frameworks"], queryFn: () => api<string[]>("/frameworks") });
 
@@ -34,7 +32,7 @@ export default function RequestsPage() {
     mutationFn: async () => {
       const req = await api<RequestItem>("/requests", {
         method: "POST",
-        body: JSON.stringify({ description, requester_id: requester, department: "partnerships" }),
+        body: JSON.stringify({ description }), // the requester is the signed-in user
       });
       await api(`/workflows/${req.id}/run`, { method: "POST", body: JSON.stringify({ framework }) });
       return req;
@@ -68,18 +66,6 @@ export default function RequestsPage() {
             />
           </label>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-sm">
-              <span className="mb-1 block font-medium">Requester</span>
-              <select
-                value={requester}
-                onChange={(e) => setRequester(e.target.value)}
-                className="rounded-md border border-zinc-300 bg-transparent p-1.5 dark:border-zinc-700"
-              >
-                {REQUESTERS.map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </label>
             <label className="text-sm">
               <span className="mb-1 block font-medium">Agent framework</span>
               <select

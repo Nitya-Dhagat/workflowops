@@ -8,14 +8,13 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
+from tests.helpers import auth_headers
+
 pytestmark = pytest.mark.integration
 
 
-async def submit(client: httpx.AsyncClient, text: str, requester: str = "u_01") -> str:
-    r = await client.post(
-        "/api/v1/requests",
-        json={"description": text, "requester_id": requester, "department": "partnerships"},
-    )
+async def submit(client: httpx.AsyncClient, text: str) -> str:
+    r = await client.post("/api/v1/requests", json={"description": text})
     assert r.status_code == 201, r.text
     return str(r.json()["id"])
 
@@ -45,11 +44,8 @@ async def decide(
 ) -> httpx.Response:
     return await client.post(
         f"/api/v1/approvals/{approval['id']}/decision?wait=true",
-        json={
-            "decision": decision,
-            "reviewer_id": reviewer,
-            "action_hash": approval["action_hash"],
-        },
+        json={"decision": decision, "action_hash": approval["action_hash"]},
+        headers=await auth_headers(client, reviewer),
     )
 
 
@@ -216,7 +212,7 @@ async def test_expired_approvals_finish_with_warnings(client, api: FastAPI) -> N
 
 
 async def test_validation_errors_use_envelope(client) -> None:  # type: ignore[no-untyped-def]
-    r = await client.post("/api/v1/requests", json={"description": "", "requester_id": "u_01"})
+    r = await client.post("/api/v1/requests", json={"description": ""})
     assert r.status_code == 422 and r.json()["error"]["code"] == 422
     r = await client.get("/api/v1/requests/00000000-0000-0000-0000-000000000000")
     assert r.status_code == 404 and r.json()["error"]["message"] == "request not found"

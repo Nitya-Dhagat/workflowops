@@ -4,17 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from backend.api import auth
 from backend.api.routes import approvals, integrations, requests, workflows
 from backend.core.config import Settings, get_settings
 from backend.core.logging import configure_logging, get_logger
@@ -78,10 +80,20 @@ def create_app(
             async with db.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         async with sm() as s:
-            await seed_reference_data(s, settings.data_dir, settings.mock_systems_url)
+            await seed_reference_data(
+                s,
+                settings.data_dir,
+                settings.mock_systems_url,
+                settings.demo_password.get_secret_value(),
+                settings.password_hash_cost,
+            )
         client = mock_client or httpx.AsyncClient(base_url=settings.mock_systems_url)
         connectors = ConnectorSet(client, settings.connector_timeout_s)
         app.state.settings = settings
+        app.state.jwt_secret = settings.jwt_secret.get_secret_value()
+        if not app.state.jwt_secret:  # dev/demo: tokens stop working when the process restarts
+            app.state.jwt_secret = secrets.token_urlsafe(48)
+            log.warning("jwt_secret_not_set", detail="using a random per-process secret")
         app.state.sessionmaker = sm
         app.state.connectors = connectors
         app.state.engine = WorkflowEngine(
@@ -146,8 +158,9 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    app.include_router(auth.router, prefix="/api/v1")  # login is public
     for r in (requests.router, workflows.router, approvals.router, integrations.router):
-        app.include_router(r, prefix="/api/v1")
+        app.include_router(r, prefix="/api/v1", dependencies=[Depends(auth.current_user)])
     return app
 
 

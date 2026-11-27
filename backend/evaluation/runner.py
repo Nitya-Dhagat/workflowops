@@ -64,22 +64,23 @@ async def run_case(
         ):
             if case.faults:
                 await mc.post("/_control/faults", json=case.faults)
+            requester = await _login(c, case.requester, settings)
+            reviewer = await _login(c, REVIEWER, settings)
             r = await c.post(
                 "/api/v1/requests",
-                json={
-                    "description": case.request,
-                    "requester_id": case.requester,
-                    "attachments": case.attachments,
-                },
+                json={"description": case.request, "attachments": case.attachments},
+                headers=requester,
             )
             rid = r.json()["id"]
             r = await c.post(
-                f"/api/v1/workflows/{rid}/run?wait=true", json={"framework": framework}
+                f"/api/v1/workflows/{rid}/run?wait=true",
+                json={"framework": framework},
+                headers=requester,
             )
             run_id = r.json()["run_id"]
             approvals_requested: list[str] = []
             for _ in range(3):
-                d = (await c.get(f"/api/v1/workflows/runs/{run_id}")).json()
+                d = (await c.get(f"/api/v1/workflows/runs/{run_id}", headers=requester)).json()
                 pending = [a for a in d["approvals"] if a["status"] == "pending"]
                 if d["request_status"] != "awaiting_approval" or not pending:
                     break
@@ -87,16 +88,22 @@ async def run_case(
                     approvals_requested.append(ap["action"]["action_type"])
                     await c.post(
                         f"/api/v1/approvals/{ap['id']}/decision?wait=true",
-                        json={
-                            "decision": "approve",
-                            "reviewer_id": REVIEWER,
-                            "action_hash": ap["action_hash"],
-                        },
+                        json={"decision": "approve", "action_hash": ap["action_hash"]},
+                        headers=reviewer,
                     )
-            d = (await c.get(f"/api/v1/workflows/runs/{run_id}")).json()
+            d = (await c.get(f"/api/v1/workflows/runs/{run_id}", headers=requester)).json()
             world = (await mc.get("/_control/state")).json()
     latency_ms = (time.perf_counter() - started) * 1000
     return score(case, framework, trial, d, world, approvals_requested, latency_ms)
+
+
+async def _login(c: httpx.AsyncClient, user_id: str, settings: Settings) -> dict[str, str]:
+    r = await c.post(
+        "/api/v1/auth/login",
+        json={"user_id": user_id, "password": settings.demo_password.get_secret_value()},
+    )
+    r.raise_for_status()
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
 def score(

@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi import Request as FastAPIRequest
 from sqlalchemy import select
 
+from backend.api.auth import Reviewer
 from backend.api.deps import EngineDep, SessionDep, spawn
 from backend.approvals.service import ApprovalError, decide
 from backend.database.models import Approval, Request, WorkflowRun
@@ -50,10 +51,11 @@ async def decide_approval(
     session: SessionDep,
     engine: EngineDep,
     http: FastAPIRequest,
+    reviewer: Reviewer,
     wait: bool = Query(default=False),
 ) -> Approval:
     try:
-        approval = await decide(session, approval_id, body)
+        approval = await decide(session, approval_id, body, reviewer.id)
     except ApprovalError as e:
         raise HTTPException(e.status_code, str(e)) from e
     # Resume the run; the engine stays paused if other approvals are still pending.

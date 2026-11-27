@@ -50,12 +50,13 @@ def _aware(dt: datetime) -> datetime:
 
 
 async def decide(
-    session: AsyncSession, approval_id: uuid.UUID, body: ApprovalDecisionIn
+    session: AsyncSession, approval_id: uuid.UUID, body: ApprovalDecisionIn, reviewer_id: str
 ) -> Approval:
+    """Record a decision by ``reviewer_id`` (the authenticated user, never a body field)."""
     approval = await session.get(Approval, approval_id, with_for_update=True)
     if approval is None:
         raise NotFoundError("approval not found")
-    reviewer = await session.get(User, body.reviewer_id)
+    reviewer = await session.get(User, reviewer_id)
     if reviewer is None or reviewer.role != UserRole.REVIEWER or not reviewer.active:
         raise ForbiddenError("only active reviewers may decide approvals")
     if approval.status != ApprovalStatus.PENDING:

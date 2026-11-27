@@ -16,5 +16,7 @@ services:
         value: http://127.0.0.1:8100
       - key: WFO_ENABLED_FRAMEWORKS
         value: rules
+      - key: WFO_JWT_SECRET
+        generateValue: true
       - key: WFO_CORS_ORIGIN_REGEX
         value: https://.*\.vercel\.app

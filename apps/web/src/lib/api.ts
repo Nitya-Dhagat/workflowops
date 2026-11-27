@@ -1,4 +1,6 @@
 // Thin typed client for the WorkflowOps API (/api/v1).
+import { clearSession, getSession } from "./auth";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type RequestItem = {
@@ -80,10 +82,18 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const session = typeof window !== "undefined" ? getSession() : null;
   const res = await fetch(`${API_URL}/api/v1${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(session ? { Authorization: `Bearer ${session.token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
+  if (res.status === 401 && !path.startsWith("/auth/")) {
+    clearSession(); // expired or invalid: AuthGate sends the user back to sign in
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try {

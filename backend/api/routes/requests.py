@@ -6,8 +6,9 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, or_, select
 
+from backend.api.auth import CurrentUser
 from backend.api.deps import SessionDep
-from backend.database.models import OutboxEvent, Request, User
+from backend.database.models import OutboxEvent, Request
 from backend.domain.enums import RequestStatus
 from backend.domain.schemas import RequestCreate, RequestRead
 
@@ -20,18 +21,16 @@ def dedupe_hash(description: str, requester_id: str) -> str:
 
 
 @router.post("", response_model=RequestRead, status_code=201)
-async def create_request(body: RequestCreate, session: SessionDep) -> Request:
-    if await session.get(User, body.requester_id) is None:
-        raise HTTPException(422, f"unknown requester `{body.requester_id}`")
+async def create_request(body: RequestCreate, session: SessionDep, user: CurrentUser) -> Request:
     req = Request(
         description=body.description,
-        requester_id=body.requester_id,
-        department=body.department,
+        requester_id=user.id,
+        department=body.department or user.department,
         category=body.category,
         priority=body.priority,
         attachments=[a.model_dump() for a in body.attachments],
         status=RequestStatus.RECEIVED,
-        dedupe_hash=dedupe_hash(body.description, body.requester_id),
+        dedupe_hash=dedupe_hash(body.description, user.id),
     )
     session.add(req)
     await session.flush()

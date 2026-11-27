@@ -30,8 +30,8 @@ class Attachment(StrictModel):
 
 class RequestCreate(StrictModel):
     description: str = Field(min_length=1, max_length=10_000)
-    requester_id: str = Field(min_length=1, max_length=64)
-    department: str = Field(default="unknown", max_length=64)
+    # The requester is the signed-in user; department defaults to theirs.
+    department: str | None = Field(default=None, max_length=64)
     category: str | None = Field(default=None, max_length=64)
     priority: Priority = Priority.NORMAL
     attachments: list[Attachment] = Field(default_factory=list, max_length=10)
@@ -167,7 +167,6 @@ class ApprovalRead(BaseModel):
 
 class ApprovalDecisionIn(StrictModel):
     decision: ApprovalDecisionType
-    reviewer_id: str = Field(min_length=1, max_length=64)
     action_hash: str = Field(min_length=64, max_length=64, description="hash the reviewer saw")
     comment: str | None = Field(default=None, max_length=2000)
 

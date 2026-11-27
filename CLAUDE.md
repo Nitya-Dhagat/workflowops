@@ -83,8 +83,11 @@ backend/database        SQLAlchemy models, Alembic migrations, reference-data se
 5. Tool inputs/outputs are logged redacted (`core/logging.redact`).
 6. Retrieved or user-supplied text is untrusted data; the policy engine never reads it as
    instructions (see `test_prompt_injection_is_ignored`).
-7. Approvals are immutable, attributed, and bound to the action hash; a changed action needs
-   re-approval.
+7. Approvals are immutable, attributed to the signed-in reviewer, and bound to the action hash;
+   a changed action needs re-approval. The gateway executes only with a signed grant minted
+   from DB state (`approvals/grants.py`).
+9. Every `/api/v1` route requires a JWT; identity comes from the token, never the body (ADR-0006).
+10. Runs are claimed with a DB lease (conditional UPDATE), so multiple workers are safe.
 8. Runs resume after a crash without duplicate side effects (`test_failures_and_recovery.py`).
 
 ## Never do

@@ -59,7 +59,7 @@ def use_fake(api: FastAPI, fake: FakeLLMClient) -> None:
 
 
 async def run_gemini(client, text: str) -> dict[str, Any]:  # type: ignore[no-untyped-def]
-    r = await client.post("/api/v1/requests", json={"description": text, "requester_id": "u_01"})
+    r = await client.post("/api/v1/requests", json={"description": text})
     rid = r.json()["id"]
     r = await client.post(f"/api/v1/workflows/{rid}/run?wait=true", json={"framework": "gemini"})
     return (await client.get(f"/api/v1/workflows/runs/{r.json()['run_id']}")).json()

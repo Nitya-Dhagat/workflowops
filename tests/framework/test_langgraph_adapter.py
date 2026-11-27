@@ -64,9 +64,7 @@ async def test_plan_graph_self_check_loop(client, api) -> None:  # type: ignore[
 
     fake = FakeLLMClient(respond)
     api.state.engine.adapters["langgraph"] = lambda gw: LangGraphAdapter(gw, fake)
-    r = await client.post(
-        "/api/v1/requests", json={"description": "Onboard Northwind Cloud", "requester_id": "u_01"}
-    )
+    r = await client.post("/api/v1/requests", json={"description": "Onboard Northwind Cloud"})
     r = await client.post(
         f"/api/v1/workflows/{r.json()['id']}/run?wait=true", json={"framework": "langgraph"}
     )

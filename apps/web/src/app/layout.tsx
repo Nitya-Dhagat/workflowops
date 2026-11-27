@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import "./globals.css";
 import { Providers } from "./providers";
+import { AuthGate, UserMenu } from "./session";
 
 export const metadata: Metadata = {
   title: "WorkflowOps",
@@ -31,9 +33,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {n.label}
                 </Link>
               ))}
+              <UserMenu />
             </nav>
           </header>
-          <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+          <main className="mx-auto max-w-6xl px-4 py-6">
+            {/* usePathname suspends on dynamic routes under cacheComponents */}
+            <Suspense fallback={<p className="py-6 text-center text-sm text-zinc-500">Loading…</p>}>
+              <AuthGate>{children}</AuthGate>
+            </Suspense>
+          </main>
         </Providers>
       </body>
     </html>

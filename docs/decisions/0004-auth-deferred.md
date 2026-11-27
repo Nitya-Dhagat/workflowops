@@ -1,6 +1,6 @@
 # 0004 — Authentication deferred to Phase 2; identity passed explicitly
 
-**Status:** accepted (temporary) · 2026-11-20
+**Status:** superseded by ADR-0006 (auth implemented 2026-11-27) · 2026-11-20
 
 ## Context
 The brief asks for simple JWT/session auth with `requester` and `reviewer` roles. Phase 1's

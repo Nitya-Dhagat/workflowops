@@ -52,6 +52,7 @@ class User(TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(32))  # requester | reviewer
     department: Mapped[str] = mapped_column(String(64), default="unknown")
     active: Mapped[bool] = mapped_column(default=True)
+    password_hash: Mapped[str | None] = mapped_column(String(200))
 
 
 class Request(TimestampMixin, Base):

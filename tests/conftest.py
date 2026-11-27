@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from backend.api.app import create_app
 from backend.core.config import REPO_ROOT, Settings
 from mock_business_systems.app import create_app as create_mock_app
+from tests.helpers import auth_headers
 
 
 @pytest.fixture(scope="session")
@@ -52,6 +53,8 @@ def settings(tmp_path: Path) -> Settings:
         retry_max_delay_s=0.0,
         log_json=False,
         log_level="WARNING",
+        jwt_secret="test-jwt-secret-that-is-at-least-32-bytes-long",
+        password_hash_cost=2**8,  # fast hashing in tests; production default is 2**14
     )
 
 
@@ -85,7 +88,9 @@ async def _reset_db(url: str) -> None:
 
 @pytest.fixture
 async def client(api: FastAPI) -> AsyncIterator[httpx.AsyncClient]:
+    """API client signed in as requester u_01 (pass other headers to act as someone else)."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=api), base_url="http://api"
     ) as c:
+        c.headers.update(await auth_headers(c, "u_01"))
         yield c

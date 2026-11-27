@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     cors_origin_regex: str = ""
     enabled_frameworks: str = ""
 
+    # Auth: JWT signing secret (32+ chars; empty = random per process, so tokens reset on
+    # restart) and the password given to the synthetic demo accounts when they are seeded.
+    jwt_secret: SecretStr = SecretStr("")
+    demo_password: SecretStr = SecretStr("workflowops-demo")
+    password_hash_cost: int = 2**14  # scrypt n; tests lower it for speed
+
     # LLM (one provider/model for every framework so comparisons are fair).
     llm_model: str = "gemini-3.5-flash"
     llm_temperature: float = 0.0

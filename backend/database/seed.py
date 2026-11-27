@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.models import Integration, User, Workflow
+from backend.security.passwords import DEFAULT_N, hash_password_async
 
 STAGES = [
     "intake",
@@ -21,7 +23,13 @@ STAGES = [
 ]
 
 
-async def seed_reference_data(session: AsyncSession, data_dir: Path, mock_url: str) -> None:
+async def seed_reference_data(
+    session: AsyncSession,
+    data_dir: Path,
+    mock_url: str,
+    demo_password: str = "",
+    password_cost: int = DEFAULT_N,
+) -> None:
     world = json.loads((data_dir / "seed" / "world.json").read_text(encoding="utf-8"))
     for u in world["users"]:
         row = await session.get(User, u["id"])
@@ -38,6 +46,10 @@ async def seed_reference_data(session: AsyncSession, data_dir: Path, mock_url: s
             )
         else:
             row.name, row.role, row.active = u["name"], u["role"], u["active"]
+    await session.flush()
+    if demo_password:  # only fills missing hashes; never overwrites a changed password
+        for row in await session.scalars(select(User).where(User.password_hash.is_(None))):
+            row.password_hash = await hash_password_async(demo_password, n=password_cost)
     if await session.get(Workflow, "partner_onboarding") is None:
         session.add(
             Workflow(

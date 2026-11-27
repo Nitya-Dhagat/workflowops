@@ -26,7 +26,7 @@ async def _no_sleep(_: float) -> None:
 
 
 async def new_request(client: httpx.AsyncClient, text: str = NORTHWIND) -> uuid.UUID:
-    r = await client.post("/api/v1/requests", json={"description": text, "requester_id": "u_01"})
+    r = await client.post("/api/v1/requests", json={"description": text})
     return uuid.UUID(r.json()["id"])
 
 
