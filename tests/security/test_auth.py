@@ -8,6 +8,7 @@ import httpx
 import jwt
 import pytest
 from fastapi import FastAPI
+from pydantic import SecretStr
 
 from backend.api.auth import create_token
 from backend.database.models import User
@@ -93,3 +94,50 @@ async def test_only_reviewers_decide_and_decision_is_attributed(client) -> None:
         headers=await auth_headers(client, "u_11"),
     )
     assert r.status_code == 200 and r.json()["decided_by"] == "u_11"
+
+
+async def test_created_account_can_sign_in_and_act_as_reviewer(anon, api) -> None:  # type: ignore[no-untyped-def]
+    from backend.database.accounts import upsert_user
+
+    async with api.state.sessionmaker() as s:
+        await upsert_user(
+            s, user_id="test.owner", name="Test Owner", password="owner-pass-1", cost=2**8
+        )
+    r = await anon.post(
+        "/api/v1/auth/login", json={"user_id": "test.owner", "password": "owner-pass-1"}
+    )
+    assert r.status_code == 200 and r.json()["user"]["role"] == "reviewer"
+    wrong = await anon.post(
+        "/api/v1/auth/login", json={"user_id": "test.owner", "password": DEMO_PASSWORD}
+    )
+    assert wrong.status_code == 401  # named accounts never get the demo password
+
+
+async def test_account_input_is_validated(api) -> None:  # type: ignore[no-untyped-def]
+    from backend.database.accounts import upsert_user
+
+    async with api.state.sessionmaker() as s:
+        for uid, pw in [("ab", "longenough"), ("Bad Name", "longenough"), ("okname", "123")]:
+            with pytest.raises(ValueError):
+                await upsert_user(s, user_id=uid, name="x", password=pw, cost=2**8)
+
+
+async def test_owner_account_is_created_from_settings(settings, mock_client) -> None:  # type: ignore[no-untyped-def]
+    from backend.api.app import create_app
+
+    s = settings.model_copy(
+        update={
+            "owner_user_id": "site.owner",
+            "owner_name": "Site Owner",
+            "owner_password": SecretStr("owner-secret-9"),
+        }
+    )
+    app = create_app(s, mock_client=mock_client, create_schema=True)
+    async with (
+        app.router.lifespan_context(app),
+        httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api") as c,
+    ):
+        r = await c.post(
+            "/api/v1/auth/login", json={"user_id": "site.owner", "password": "owner-secret-9"}
+        )
+        assert r.status_code == 200 and r.json()["user"]["name"] == "Site Owner"

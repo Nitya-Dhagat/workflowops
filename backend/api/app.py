@@ -20,6 +20,7 @@ from backend.api import auth
 from backend.api.routes import approvals, integrations, requests, workflows
 from backend.core.config import Settings, get_settings
 from backend.core.logging import configure_logging, get_logger
+from backend.database.accounts import upsert_user
 from backend.database.models import Base
 from backend.database.seed import seed_reference_data
 from backend.database.session import make_engine, make_sessionmaker
@@ -87,6 +88,14 @@ def create_app(
                 settings.demo_password.get_secret_value(),
                 settings.password_hash_cost,
             )
+            if settings.owner_user_id and settings.owner_password.get_secret_value():
+                await upsert_user(
+                    s,
+                    user_id=settings.owner_user_id,
+                    name=settings.owner_name or settings.owner_user_id,
+                    password=settings.owner_password.get_secret_value(),
+                    cost=settings.password_hash_cost,
+                )
         client = mock_client or httpx.AsyncClient(base_url=settings.mock_systems_url)
         connectors = ConnectorSet(client, settings.connector_timeout_s)
         app.state.settings = settings

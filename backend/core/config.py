@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr = SecretStr("")
     demo_password: SecretStr = SecretStr("workflowops-demo")
     password_hash_cost: int = 2**14  # scrypt n; tests lower it for speed
+    # Optional named owner account created at startup (e.g. on a host whose DB resets).
+    # Set the password only as a secret environment variable, never in the repository.
+    owner_user_id: str = ""
+    owner_name: str = ""
+    owner_password: SecretStr = SecretStr("")
 
     # LLM (one provider/model for every framework so comparisons are fair).
     llm_model: str = "gemini-3.5-flash"

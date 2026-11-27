@@ -38,19 +38,24 @@ export default function LoginPage() {
           }}
         >
           <label className="block text-sm" htmlFor="login-user">
-            <span className="mb-1 block font-medium">User</span>
-            <select
+            <span className="mb-1 block font-medium">Username</span>
+            {/* Any account works; the list only suggests the synthetic demo accounts. */}
+            <input
               id="login-user"
+              list="demo-accounts"
+              required
+              autoComplete="username"
               value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              onChange={(e) => setUserId(e.target.value.trim())}
               className="w-full rounded-md border border-zinc-300 bg-transparent p-2 dark:border-zinc-700"
-            >
-              {(users.data ?? [{ id: "u_01", name: "Avery Patel", role: "requester" }]).map((u) => (
+            />
+            <datalist id="demo-accounts">
+              {(users.data ?? []).map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} ({u.role}, {u.id})
+                  {u.name} ({u.role})
                 </option>
               ))}
-            </select>
+            </datalist>
           </label>
           <label className="block text-sm" htmlFor="login-password">
             <span className="mb-1 block font-medium">Password</span>
