@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from backend.core.config import Settings
@@ -68,6 +68,7 @@ from backend.tools.gateway import AGENT_ALLOWLIST, ToolGateway
 log = get_logger(__name__)
 S = RequestStatus
 WORKFLOW_ID = "partner_onboarding"
+LEASE = timedelta(minutes=5)
 MAX_REFINEMENTS = 2
 PLANNER_ERROR_CHECKS = {"schema", "allowlist", "evidence", "duplicate"}
 PROMPT_VERSIONS = {a: "v1" for a in AGENT_FOR_TASK.values()}
@@ -98,6 +99,7 @@ class WorkflowEngine:
         sleep: Sleep = asyncio.sleep,
         rng: random.Random | None = None,
         worker_id: str | None = None,
+        claim_wait_s: float = 10.0,
     ) -> None:
         self.sm = sessionmaker
         self.connectors = connectors
@@ -106,6 +108,7 @@ class WorkflowEngine:
         self.sleep = sleep
         self.rng = rng or random.Random()
         self.worker_id = worker_id or f"worker-{uuid.uuid4().hex[:8]}"
+        self.claim_wait_s = claim_wait_s
         self._locks: dict[uuid.UUID, asyncio.Lock] = {}
         # Test hook: called after each committed stage with the new status.
         self.after_stage: Callable[[RequestStatus], Awaitable[None]] | None = None
@@ -133,9 +136,47 @@ class WorkflowEngine:
             return run.id
 
     async def advance(self, run_id: uuid.UUID) -> RequestStatus:
+        """Drive a run until it pauses or ends. Safe to call from many workers at once.
+
+        An in-process lock serializes callers inside this worker; a lease claimed with a
+        conditional UPDATE in the database serializes workers. A worker that cannot claim the
+        lease waits briefly (the holder may be about to pause), then leaves the run to it.
+        """
         lock = self._locks.setdefault(run_id, asyncio.Lock())
         async with lock:
+            deadline = time.monotonic() + self.claim_wait_s
+            while not await self._claim(run_id):
+                if time.monotonic() >= deadline:
+                    log.info("run_claimed_elsewhere", run=str(run_id), worker=self.worker_id)
+                    async with self.sm() as s:
+                        _, req = await self._load(s, run_id)
+                        return S(req.status)
+                await asyncio.sleep(0.25)
             return await self._advance(run_id)
+
+    async def _claim(self, run_id: uuid.UUID) -> bool:
+        """Atomically take (or renew) the run's lease. True only for the lease holder."""
+        now = utcnow()
+        async with self.sm() as s:
+            res = await s.execute(
+                update(WorkflowRun)
+                .where(
+                    WorkflowRun.id == run_id,
+                    or_(
+                        WorkflowRun.lease_owner.is_(None),
+                        WorkflowRun.lease_owner == self.worker_id,
+                        WorkflowRun.lease_expires_at < now,
+                    ),
+                )
+                .values(
+                    lease_owner=self.worker_id,
+                    lease_expires_at=now + LEASE,
+                    status=RunStatus.RUNNING,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            await s.commit()
+            return bool(getattr(res, "rowcount", 0) == 1)
 
     async def cancel(self, run_id: uuid.UUID, reason: str = "cancelled by user") -> None:
         async with self.sm() as s:
@@ -163,14 +204,14 @@ class WorkflowEngine:
     async def _advance(self, run_id: uuid.UUID) -> RequestStatus:
         gateway = ToolGateway(self.connectors)
         adapter = self.adapters[await self._framework(run_id)](gateway)
-        async with self.sm() as s:
-            run, req = await self._load(s, run_id)
-            run.status = RunStatus.RUNNING
-            run.lease_owner = self.worker_id
-            run.lease_expires_at = utcnow() + timedelta(minutes=5)
-            await s.commit()
 
         while True:
+            # Renew the lease before every stage; if another worker took over after our lease
+            # expired, stop instead of racing it.
+            if not await self._claim(run_id):
+                async with self.sm() as s:
+                    _, req = await self._load(s, run_id)
+                    return S(req.status)
             async with self.sm() as s:
                 run, req = await self._load(s, run_id)
                 status = S(req.status)
