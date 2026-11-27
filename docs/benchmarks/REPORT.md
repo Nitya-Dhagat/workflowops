@@ -10,11 +10,11 @@
 - Trials per case: 1 · git `805a6ee` · run 20261121T083706Z
 - Simulated reviewer approves every requested approval; scoring is final-state based.
 
-> **Not reported:** `adk` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
+> **Not reported:** `adk` - 8 valid runs, 1 excluded as provider/network failures (quota, overload, connection errors). Need 10+ valid runs to report rates.
 
-> **Not reported:** `gemini` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
+> **Not reported:** `gemini` - 9 valid runs, 1 excluded as provider/network failures (quota, overload, connection errors). Need 10+ valid runs to report rates.
 
-> **Not reported:** `langgraph` - 1 valid runs, 0 blocked by the Gemini free-tier quota (429, 20 requests/day/model). Too few valid runs to report rates.
+> **Not reported:** `langgraph` - 9 valid runs, 0 excluded as provider/network failures (quota, overload, connection errors). Need 10+ valid runs to report rates.
 
 ## Results
 
@@ -31,6 +31,7 @@
 | Latency p50 / p95 (s) | 4.8 / 8.9 |
 | Mean tokens per run | 0 |
 | Total est. cost (USD) | 0.0000 |
+| Runs excluded (provider/network) | 0 |
 
 ## Success by category
 
@@ -55,6 +56,8 @@
 
 | Framework | Case | Category | Tags | Final status / reason |
 |---|---|---|---|---|
+| gemini | onb-009 | missing_document | missing_required_action | awaiting_requester_info: waiting for SOC 2 Type II report from requester |
+| langgraph | onb-002 | normal | missing_required_action | completed: all approved actions executed and verified |
 
 ## Limitations
 

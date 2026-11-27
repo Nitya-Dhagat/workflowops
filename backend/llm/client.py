@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol, TypeVar
 
+import httpx
 from pydantic import BaseModel, ValidationError
 
 T = TypeVar("T", bound=BaseModel)
@@ -128,7 +129,8 @@ class GeminiClient:
                 code = getattr(e, "code", None)
                 # Daily quotas will not recover within a retry window; per-minute limits will.
                 daily_quota = "PerDay" in str(e)
-                transient = code in {500, 503, 504} or (code == 429 and not daily_quota)
+                network = isinstance(e, httpx.TransportError | TimeoutError)
+                transient = network or code in {500, 503, 504} or (code == 429 and not daily_quota)
                 if transient and attempt < self.max_attempts:
                     # Bounded exponential backoff for overload / rate limits.
                     await asyncio.sleep(2**attempt)

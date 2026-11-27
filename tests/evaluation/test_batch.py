@@ -55,3 +55,29 @@ async def test_refuses_to_mix_models(tmp_path: Path) -> None:
     await run_batch(cases, ["a"], tmp_path, META, run_one, max_runs=1)
     with pytest.raises(IncompatibleResultsError):
         await run_batch(cases, ["a"], tmp_path, {**META, "model": "m2"}, run_one, max_runs=1)
+
+
+async def test_infra_failures_are_not_stored_and_get_retried(tmp_path: Path) -> None:
+    cases = load_cases()[:2]
+    flaky = {"n": 0}
+
+    async def run_one(case: EvalCase, fw: str) -> dict[str, Any]:
+        r = ok(case, fw)
+        if case.id == cases[0].id and flaky["n"] == 0:
+            flaky["n"] += 1
+            r["status_reason"] = "error: planning agent failed: 503 UNAVAILABLE high demand"
+        return r
+
+    out = await run_batch(cases, ["a"], tmp_path, META, run_one, max_runs=5)
+    assert out["infra_skipped"] == [f"a:{cases[0].id}"] and out["progress"] == {"a": "1/2"}
+    out = await run_batch(cases, ["a"], tmp_path, META, run_one, max_runs=5)
+    assert out["progress"] == {"a": "2/2"}  # the infra-failed case was re-run
+
+
+def test_policy_rejections_are_never_infra() -> None:
+    from backend.evaluation.report import is_infra_failure
+
+    assert not is_infra_failure({"status_reason": "rejected: out of scope (429 words)"})
+    assert is_infra_failure(
+        {"status_reason": "error: intake agent failed: gemini call failed: ReadError: "}
+    )

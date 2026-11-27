@@ -27,23 +27,47 @@ def pct(values: list[float], q: float) -> float:
     return s[min(len(s) - 1, int(q * len(s)))]
 
 
+INFRA_MARKERS = (
+    "RESOURCE_EXHAUSTED",
+    " 429",
+    "503 UNAVAILABLE",
+    "UNAVAILABLE",
+    "ReadError",
+    "ConnectError",
+    "RemoteProtocolError",
+    "ReadTimeout",
+    "ConnectTimeout",
+)
+
+
 def is_quota_blocked(r: dict[str, Any]) -> bool:
-    """Provider quota/rate-limit failures are infrastructure failures, not quality results."""
+    """Daily provider quota exhausted: no point running more cases today."""
     reason = r.get("status_reason", "")
-    return "RESOURCE_EXHAUSTED" in reason or "429" in reason
+    return "RESOURCE_EXHAUSTED" in reason or "PerDay" in reason
+
+
+def is_infra_failure(r: dict[str, Any]) -> bool:
+    """Provider quota, overload or network failures: infrastructure, not model quality.
+
+    Only errors (``error:`` reasons) count; a policy rejection that mentions a code never does.
+    """
+    reason = r.get("status_reason", "")
+    if not (reason.startswith("error:") or "harness_error" in r.get("failure_tags", [])):
+        return False
+    return any(m in reason for m in INFRA_MARKERS)
 
 
 def summarize(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     by_fw: dict[str, list[dict[str, Any]]] = defaultdict(list)
     blocked: dict[str, int] = defaultdict(int)
     for r in results:
-        if is_quota_blocked(r):
+        if is_infra_failure(r):
             blocked[r["framework"]] += 1
         else:
             by_fw[r["framework"]].append(r)
     out: dict[str, dict[str, Any]] = {}
     for fw, n in blocked.items():
-        out[fw] = {"quota_blocked_runs": n, "valid_runs": len(by_fw.get(fw, []))}
+        out[fw] = {"infra_excluded_runs": n, "valid_runs": len(by_fw.get(fw, []))}
     for fw, rs in sorted(by_fw.items()):
         if len(rs) < MIN_VALID_RUNS:  # too few valid runs to report any rate
             out.setdefault(fw, {})["valid_runs"] = len(rs)
@@ -85,7 +109,7 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             "total_cost_usd_estimate": sum(r["cost_usd_estimate"] for r in rs),
             "by_category": {c: statistics.fmean(v) for c, v in sorted(cats.items())},
             "failure_tags": dict(sorted(tags.items())),
-            "quota_blocked_runs": blocked.get(fw, 0),
+            "infra_excluded_runs": blocked.get(fw, 0),
             "valid_runs": len(rs),
         }
     return out
@@ -99,8 +123,8 @@ def render(
     fws = list(summary)
     note = [
         f"> **Not reported:** `{f}` - {s.get('valid_runs', 0)} valid runs, "
-        f"{s.get('quota_blocked_runs', 0)} blocked by the Gemini free-tier quota "
-        f"(429, 20 requests/day/model). Too few valid runs to report rates."
+        f"{s.get('infra_excluded_runs', 0)} excluded as provider/network failures "
+        f"(quota, overload, connection errors). Need {MIN_VALID_RUNS}+ valid runs to report rates."
         for f, s in excluded.items()
     ]
     lines = [
@@ -145,6 +169,7 @@ def render(
     row("Latency p50 / p95 (s)", lambda s: f"{s['p50_latency_s']:.1f} / {s['p95_latency_s']:.1f}")
     row("Mean tokens per run", lambda s: f"{s['mean_tokens']:.0f}")
     row("Total est. cost (USD)", lambda s: f"{s['total_cost_usd_estimate']:.4f}")
+    row("Runs excluded (provider/network)", lambda s: str(s.get("infra_excluded_runs", 0)))
     cats = sorted({c for s in summary.values() for c in s["by_category"]})
     lines += [
         "",
@@ -165,7 +190,7 @@ def render(
             f"- **{f}**: "
             + (", ".join(f"{k} {v}" for k, v in summary[f]["failure_tags"].items()) or "none")
         )
-    failed = [r for r in results if not r["success"] and not is_quota_blocked(r)]
+    failed = [r for r in results if not r["success"] and not is_infra_failure(r)]
     lines += [
         "",
         "## Failed runs (for inspection)",
